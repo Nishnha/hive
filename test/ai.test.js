@@ -81,6 +81,48 @@ test("AI develops reserve pieces instead of shuffling early pieces", () => {
   assert.equal(chooseMove(state).kind, "place");
 });
 
+test("AI never surrounds its own Queen when a non-losing move exists", () => {
+  const state = {
+    version: 1,
+    currentPlayer: "white",
+    moveNumber: 10,
+    turns: { white: 5, black: 5 },
+    inventories: {
+      white: { queen: 0, beetle: 2, spider: 0, grasshopper: 3, ant: 0 },
+      black: { queen: 0, beetle: 2, spider: 2, grasshopper: 3, ant: 3 },
+    },
+    board: {
+      "0,0": [{ id: "w-q", color: "white", type: "queen" }],
+      "1,-1": [{ id: "w-a1", color: "white", type: "ant" }],
+      "0,-1": [{ id: "w-a2", color: "white", type: "ant" }],
+      "-1,0": [{ id: "w-a3", color: "white", type: "ant" }],
+      "-1,1": [{ id: "w-s1", color: "white", type: "spider" }],
+      "0,1": [{ id: "w-s2", color: "white", type: "spider" }],
+      "-2,0": [{ id: "b-q", color: "black", type: "queen" }],
+    },
+    status: "active",
+    winner: null,
+    lastAction: null,
+  };
+
+  const actions = enumerateLegalActions(state);
+  const selfLoss = actions.find(
+    (action) =>
+      action.kind === "place" && action.to.q === 1 && action.to.r === 0,
+  );
+  assert.ok(selfLoss);
+  assert.equal(applyMove(state, selfLoss).winner, "black");
+  assert.ok(
+    actions.some((action) => {
+      const next = applyMove(state, action);
+      return next.status !== "won" || next.winner !== "black";
+    }),
+  );
+
+  const chosen = applyMove(state, chooseMove(state));
+  assert.notEqual(chosen.winner, "black");
+});
+
 test("AI avoids a move that gives the opponent an immediate win", () => {
   const state = {
     version: 1,

@@ -133,14 +133,19 @@ function opponentPressureNextTurn(state, opponent) {
   return OWN_QUEEN_DANGER[maximum] - OWN_QUEEN_DANGER[currentPressure];
 }
 
-function scoreAction(state, action, color) {
-  const next = applyMove(state, action);
+function scoreAction(
+  state,
+  action,
+  color,
+  next = applyMove(state, action),
+  allowsImmediateLoss = false,
+) {
   if (next.status === "won" && next.winner === color) return 1_000_000;
   if (next.status === "draw") return 100_000;
 
   const opponent = otherColor(color);
   let score = deploymentScore(state, action, color);
-  if (opponentCanWinImmediately(next, opponent)) score -= 500_000;
+  if (allowsImmediateLoss) score -= 500_000;
 
   score += queenPressureScore(next, color);
   score += movementPurposeScore(state, next, action, color);
@@ -156,12 +161,48 @@ export function chooseMove(state, color = state.currentPlayer) {
   const actions = sortActions(enumerateLegalActions(state, color));
   if (!actions.length) return null;
 
-  let best = actions[0];
-  let bestScore = scoreAction(state, best, color);
-  for (let index = 1; index < actions.length; index += 1) {
-    const score = scoreAction(state, actions[index], color);
+  const opponent = otherColor(color);
+  const analyzed = actions.map((action) => {
+    const next = applyMove(state, action);
+    return {
+      action,
+      next,
+      losesImmediately: next.status === "won" && next.winner === opponent,
+      allowsImmediateLoss:
+        next.status === "active" && opponentCanWinImmediately(next, opponent),
+    };
+  });
+  const winning = analyzed.find(
+    ({ next }) => next.status === "won" && next.winner === color,
+  );
+  if (winning) return winning.action;
+
+  const nonLosing = analyzed.filter(({ losesImmediately }) => !losesImmediately);
+  let candidates = nonLosing.length ? nonLosing : analyzed;
+  const tacticallySafe = candidates.filter(
+    ({ allowsImmediateLoss }) => !allowsImmediateLoss,
+  );
+  if (tacticallySafe.length) candidates = tacticallySafe;
+
+  let best = candidates[0].action;
+  let bestScore = scoreAction(
+    state,
+    best,
+    color,
+    candidates[0].next,
+    candidates[0].allowsImmediateLoss,
+  );
+  for (let index = 1; index < candidates.length; index += 1) {
+    const candidate = candidates[index];
+    const score = scoreAction(
+      state,
+      candidate.action,
+      color,
+      candidate.next,
+      candidate.allowsImmediateLoss,
+    );
     if (score > bestScore) {
-      best = actions[index];
+      best = candidate.action;
       bestScore = score;
     }
   }

@@ -21,6 +21,20 @@ function copyInventory(inventory) {
   );
 }
 
+function positionKey(state) {
+  const board = Object.entries(state.board)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, stack]) => [
+      key,
+      stack.map(({ color, type }) => `${color}:${type}`).join(">"),
+    ]);
+  return JSON.stringify({
+    currentPlayer: state.currentPlayer,
+    inventories: state.inventories,
+    board,
+  });
+}
+
 export function cloneState(state) {
   return {
     version: state.version,
@@ -36,16 +50,20 @@ export function cloneState(state) {
     ),
     status: state.status,
     winner: state.winner,
+    drawReason: state.drawReason ?? null,
     lastAction: state.lastAction
       ? JSON.parse(JSON.stringify(state.lastAction))
       : null,
+    positionHistory: state.positionHistory
+      ? [...state.positionHistory]
+      : [positionKey(state)],
   };
 }
 
 export function createInitialState(options = {}) {
   const firstPlayer = options.firstPlayer ?? "white";
   assertColor(firstPlayer);
-  return {
+  const state = {
     version: 1,
     currentPlayer: firstPlayer,
     moveNumber: 0,
@@ -57,8 +75,11 @@ export function createInitialState(options = {}) {
     board: {},
     status: "active",
     winner: null,
+    drawReason: null,
     lastAction: null,
   };
+  state.positionHistory = [positionKey(state)];
+  return state;
 }
 
 export function serializeState(state) {
@@ -141,6 +162,15 @@ export function getGameResult(state) {
   }
   if (blackSurrounded) {
     return { status: "won", winner: "white" };
+  }
+  if (state.positionHistory) {
+    const current = positionKey(state);
+    const repetitions = state.positionHistory.filter(
+      (position) => position === current,
+    ).length;
+    if (repetitions >= 3) {
+      return { status: "draw", winner: null };
+    }
   }
   return { status: "active", winner: null };
 }
@@ -246,6 +276,23 @@ export function validateState(state) {
     (state.status !== "won" && state.winner !== null)
   ) {
     throw new TypeError("winner must be set exactly when status is won");
+  }
+  if (
+    state.drawReason !== undefined &&
+    ![null, "surround", "repetition"].includes(state.drawReason)
+  ) {
+    throw new TypeError("drawReason must describe a supported draw");
+  }
+  if (state.status !== "draw" && state.drawReason) {
+    throw new TypeError("drawReason may only be set for a drawn game");
+  }
+  if (
+    state.positionHistory !== undefined &&
+    (!Array.isArray(state.positionHistory) ||
+      state.positionHistory.length === 0 ||
+      state.positionHistory.some((position) => typeof position !== "string"))
+  ) {
+    throw new TypeError("positionHistory must contain position keys");
   }
   return true;
 }
@@ -612,9 +659,17 @@ export function applyMove(state, action) {
   next.moveNumber += 1;
   next.currentPlayer = otherColor(legal.color);
   next.lastAction = JSON.parse(JSON.stringify(completed));
+  next.positionHistory.push(positionKey(next));
   const result = getGameResult(next);
   next.status = result.status;
   next.winner = result.winner;
+  next.drawReason =
+    result.status === "draw"
+      ? isQueenSurrounded(next, "white") &&
+        isQueenSurrounded(next, "black")
+        ? "surround"
+        : "repetition"
+      : null;
   return next;
 }
 

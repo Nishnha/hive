@@ -8,7 +8,7 @@ A browser implementation of the base [Hive](https://en.wikipedia.org/wiki/Hive_(
 - **Computer**: play White against a tactical computer opponent.
 - **Online**: create a five-character room code and send it to another player.
 
-The game enforces the base set's placement and movement rules, including the one-hive rule, freedom to move, Queen placement deadline, Beetle stacking, and all five insect movement patterns.
+The game enforces the base set's placement and movement rules, including the one-hive rule, freedom to move, Queen placement deadline, Beetle stacking, forced passes, threefold-repetition draws, and all five insect movement patterns.
 
 ## Development
 

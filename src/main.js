@@ -93,7 +93,9 @@ function statusText() {
     return `${titleCase(state.winner)} wins by surrounding the opposing Queen.`;
   }
   if (state.status === "draw") {
-    return "Draw — both Queens were surrounded at the same time.";
+    return state.drawReason === "repetition"
+      ? "Draw — the same board position occurred three times."
+      : "Draw — both Queens were surrounded at the same time.";
   }
   if (mode === "online" && online.players < 2) {
     return "Waiting for another player to join the room.";

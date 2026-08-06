@@ -218,6 +218,47 @@ test("beetles step onto occupied hexes and elevated beetles cross low gates", ()
   ));
 });
 
+test("the top Beetle controls stack color for new placements", () => {
+  const state = makeState([
+    [0, 0, [["black", "queen"], ["white", "beetle"]]],
+    [-1, 0, [["white", "queen"]]],
+  ]);
+
+  const whitePlacements = enumerateLegalPlacements(state, "white");
+  const blackPlacements = enumerateLegalPlacements(state, "black");
+  assert.ok(hasDestination(whitePlacements, 1, 0));
+  assert.ok(!hasDestination(blackPlacements, 1, 0));
+});
+
+test("only an elevated Beetle can drop through a closed gate into a cavity", () => {
+  const ring = [
+    [1, 0, [["black", "queen"], ["white", "beetle"]]],
+    [1, -1, [["white", "queen"]]],
+    [0, -1, [["black", "ant"]]],
+    [-1, 0, [["black", "spider"]]],
+    [-1, 1, [["white", "spider"]]],
+    [0, 1, [["black", "grasshopper"]]],
+  ];
+  const elevated = makeState(ring);
+  const beetleMoves = enumerateLegalMoves(elevated).filter(
+    (action) => action.type === "beetle",
+  );
+  assert.ok(hasDestination(beetleMoves, 0, 0));
+
+  const ground = makeState([
+    ...ring.map(([q, r, pieces]) => [
+      q,
+      r,
+      pieces.filter(([, type]) => type !== "beetle"),
+    ]),
+    [2, 0, [["white", "beetle"]]],
+  ]);
+  const groundBeetleMoves = enumerateLegalMoves(ground).filter(
+    (action) => action.type === "beetle",
+  );
+  assert.ok(!hasDestination(groundBeetleMoves, 0, 0));
+});
+
 test("grasshoppers jump in a straight line to the first empty hex", () => {
   const state = makeState([
     [0, 0, [["white", "grasshopper"]]],
@@ -230,6 +271,18 @@ test("grasshoppers jump in a straight line to the first empty hex", () => {
   assert.ok(hasDestination(jumps, 3, 0));
   assert.ok(!hasDestination(jumps, 2, 0));
   assert.ok(!hasDestination(jumps, 1, 0));
+});
+
+test("grasshoppers jump over stacks regardless of their height", () => {
+  const state = makeState([
+    [0, 0, [["white", "grasshopper"]]],
+    [1, 0, [["black", "queen"], ["white", "beetle"], ["black", "beetle"]]],
+    [2, 0, [["white", "queen"]]],
+  ]);
+  const jumps = enumerateLegalMoves(state).filter(
+    (action) => action.type === "grasshopper",
+  );
+  assert.ok(hasDestination(jumps, 3, 0));
 });
 
 test("spiders take exactly three perimeter steps without revisiting", () => {
@@ -257,6 +310,38 @@ test("ants can traverse the entire reachable sliding perimeter", () => {
   assert.equal(moves.length, 5);
   assert.ok(!hasDestination(moves, 1, 0));
   assert.ok(hasDestination(moves, -1, 0));
+});
+
+test("ground pieces cannot slide into a completely enclosed cavity", () => {
+  const state = makeState([
+    [1, 0, [["black", "queen"]]],
+    [1, -1, [["white", "queen"]]],
+    [0, -1, [["black", "ant"]]],
+    [-1, 0, [["black", "spider"]]],
+    [-1, 1, [["white", "spider"]]],
+    [0, 1, [["black", "grasshopper"]]],
+    [2, 0, [["white", "ant"]]],
+  ]);
+  const antMoves = enumerateLegalMoves(state).filter(
+    (action) => action.type === "ant",
+  );
+  assert.ok(!hasDestination(antMoves, 0, 0));
+});
+
+test("placements may enter an enclosed cavity when all neighbors are friendly", () => {
+  const state = makeState([
+    [1, 0, [["white", "queen"]]],
+    [1, -1, [["white", "ant"]]],
+    [0, -1, [["white", "ant"]]],
+    [-1, 0, [["white", "ant"]]],
+    [-1, 1, [["white", "spider"]]],
+    [0, 1, [["white", "spider"]]],
+    [2, 0, [["black", "queen"]]],
+  ]);
+  const placements = enumerateLegalPlacements(state).filter(
+    (action) => action.type === "beetle",
+  );
+  assert.ok(hasDestination(placements, 0, 0));
 });
 
 test("winner and simultaneous-surround draw detection include occupied stacks", () => {
@@ -292,6 +377,18 @@ test("winner and simultaneous-surround draw detection include occupied stacks", 
   }
   const draw = makeState([...occupied.values()]);
   assert.deepEqual(getGameResult(draw), { status: "draw", winner: null });
+});
+
+test("covering a Queen does not replace one of the six surrounding sides", () => {
+  const state = makeState([
+    [0, 0, [["black", "queen"], ["white", "beetle"]]],
+    [1, 0, [["white", "queen"]]],
+    [1, -1, [["white", "ant"]]],
+    [0, -1, [["black", "ant"]]],
+    [-1, 0, [["white", "spider"]]],
+    [-1, 1, [["black", "spider"]]],
+  ]);
+  assert.deepEqual(getGameResult(state), { status: "active", winner: null });
 });
 
 test("applyMove detects a win and leaves the input state unchanged", () => {
@@ -393,4 +490,24 @@ test("action helpers handle canonical pass actions", () => {
     blackPass,
     whitePass,
   ]);
+});
+
+test("the same position occurring three times is a draw", () => {
+  const state = createInitialState();
+  const action = enumerateLegalActions(state)[0];
+  const once = applyMove(state, action);
+  const repeatedPosition =
+    once.positionHistory[once.positionHistory.length - 1];
+  const primed = {
+    ...state,
+    positionHistory: [
+      state.positionHistory[0],
+      repeatedPosition,
+      repeatedPosition,
+    ],
+  };
+  const draw = applyMove(primed, action);
+  assert.equal(draw.status, "draw");
+  assert.equal(draw.winner, null);
+  assert.equal(draw.drawReason, "repetition");
 });
