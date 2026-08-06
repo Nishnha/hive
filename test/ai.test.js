@@ -65,6 +65,22 @@ test("AI takes an immediate winning move", () => {
   assert.equal(result.winner, "white");
 });
 
+test("AI develops reserve pieces instead of shuffling early pieces", () => {
+  let state = createInitialState();
+  const opening = [
+    { kind: "place", type: "queen", to: { q: 0, r: 0 } },
+    { kind: "place", type: "queen", to: { q: 1, r: 0 } },
+    { kind: "place", type: "ant", to: { q: -1, r: 0 } },
+    { kind: "place", type: "ant", to: { q: 2, r: 0 } },
+  ];
+  for (const action of opening) state = applyMove(state, action);
+
+  const actions = enumerateLegalActions(state);
+  assert.ok(actions.some((action) => action.kind === "move"));
+  assert.ok(actions.some((action) => action.kind === "place"));
+  assert.equal(chooseMove(state).kind, "place");
+});
+
 test("AI avoids a move that gives the opponent an immediate win", () => {
   const state = {
     version: 1,
