@@ -1,7 +1,41 @@
 # Hive
-An online [Hive](https://en.wikipedia.org/wiki/Hive_(game)) clone using canvas written in JavaScript.
 
-This game is still in development.
-If you wish to test it clone this repository and run `npm install` or `yarn install` in the project folder.
+A browser implementation of the base [Hive](https://en.wikipedia.org/wiki/Hive_(game)) board game.
 
-To start up the project run `npm start`. To build the project without opening it run `npm run build`.
+## Game modes
+
+- **Pass & play**: two people share one device.
+- **Computer**: play White against a tactical computer opponent.
+- **Online**: create a five-character room code and send it to another player.
+
+The game enforces the base set's placement and movement rules, including the one-hive rule, freedom to move, Queen placement deadline, Beetle stacking, and all five insect movement patterns.
+
+## Development
+
+Requires Node.js 20 or newer.
+
+```bash
+npm install
+npm run dev
+```
+
+The Vite development server supports local and computer games. Online rooms use the application server:
+
+```bash
+npm run build
+npm start
+```
+
+Then open `http://localhost:4173`.
+
+## Commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the Vite development server |
+| `npm test` | Run the rules-engine tests |
+| `npm run build` | Create the production client |
+| `npm start` | Serve the production client and online rooms |
+| `npm run check` | Run tests and create a production build |
+
+Online rooms are held in memory and reset when the server restarts.
